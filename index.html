@@ -320,7 +320,7 @@ function loadImg(file){
     i.onload=()=>ok(i);i.onerror=ng;i.src=u;});
 }
 async function handleFiles(files){
-  const st=$('status');const msgs=[];
+  const st=$('status');const msgs=[];let cleared=false;
   for(const f of files){
     if(!f.type.startsWith('image/'))continue;
     st.textContent='讀取中…(第一次會下載文字辨識模組,約數秒)';
@@ -330,6 +330,7 @@ async function handleFiles(files){
       const g=c.getContext('2d');g.drawImage(img,0,0);
       const rs=analyze(g.getImageData(0,0,c.width,c.height).data,c.width,c.height);
       if(!rs.length){msgs.push('「'+f.name+'」找不到發光路徑(要在已走過路徑的畫面截圖)。');continue;}
+      if(!cleared){S.paths=[];cleared=true;}
       const parts=[];
       for(const r of rs){
         const i=S.paths.findIndex(p=>p.s===r.s);
