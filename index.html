@@ -72,7 +72,7 @@ tr.used td,tr.used th{opacity:.45}
 <script>
 /*CORE*/
 const R=5,C=6,G=5;
-const fmt=p=>p>0&&p<0.05?'&lt;0.1%':p.toFixed(1)+'%';
+const fmt=p=>p>0&&p<0.1?'&lt;0.1%':p.toFixed(1)+'%';
 function derive(paths){
   const present=new Set(),absent=new Set();
   for(const pa of paths){
