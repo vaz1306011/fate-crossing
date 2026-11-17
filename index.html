@@ -5,91 +5,74 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>交錯命途機率計算</title>
 <style>
-:root{--bg:#121418;--fg:#ece9e1;--mut:#9a978d;--card:#1c1f26;--line:#333843;--acc:#e0b95c;--accfg:#1a1405;--bar:#3a7ca5;--bad:#d9685a}
-@media (prefers-color-scheme:light){:root{--bg:#f4f1ea;--fg:#22211e;--mut:#6b685f;--card:#fff;--line:#dcd7ca;--acc:#c48f1c;--accfg:#fff;--bar:#3a7ca5;--bad:#b8402f}}
+:root{--bg:#101216;--fg:#ece9e1;--mut:#9a978d;--card:#1b1e24;--line:#333843;--acc:#e0b95c;--accfg:#1a1405;--bad:#d9685a;--gold:#f7c859;--silver:#d5dbe5;--bronze:#d28b4c}
 *{box-sizing:border-box}
-body{margin:0;padding:16px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,"Microsoft JhengHei",sans-serif}
+body{margin:0;padding:12px;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,"Microsoft JhengHei",sans-serif}
 main{max-width:560px;margin:0 auto}
-h1{font-size:20px;margin:0 0 14px}
+h1{font-size:19px;margin:4px 0 10px;text-align:center}
 h2{font-size:14px;margin:0 0 10px;color:var(--mut);font-weight:600;letter-spacing:.05em}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
 .note{color:var(--mut);font-size:13px;margin:8px 0 0}
 button{font:inherit;color:var(--fg);cursor:pointer}
-.targets{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px}
-.tg{height:52px;border-radius:10px;border:2px solid var(--line);background:var(--bg);font-size:22px;font-weight:700}
-.tg.on{background:var(--acc);border-color:var(--acc);color:var(--accfg)}
-.tg.got{opacity:.4;text-decoration:line-through}
-.rank{display:flex;flex-direction:column;gap:8px}
-.rk{display:grid;grid-template-columns:44px 1fr 68px;align-items:center;gap:10px}
-.rk .l{height:44px;display:grid;place-items:center;border-radius:10px;background:var(--bg);border:1px solid var(--line);font-size:20px;font-weight:700}
-.rk .b{height:22px;background:var(--bg);border-radius:6px;overflow:hidden}
-.rk .b i{display:block;height:100%;background:var(--bar);border-radius:6px}
-.rk .p{text-align:right;font-size:18px;font-variant-numeric:tabular-nums;font-weight:600}
-.rk.best .l{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
-.rk.best .b i{background:var(--acc)}
-.rk.best .p{font-size:24px;color:var(--acc)}
-.rk.used{opacity:.4}
-.big{font-size:15px;margin-bottom:12px}
-.big b{font-size:17px}
+#drop.over{outline:2px dashed var(--acc);outline-offset:4px;border-radius:14px}
+.board{display:block;width:100%;height:auto;user-select:none;-webkit-user-select:none;background:radial-gradient(ellipse at 50% 0,#2a3a38 0,#14171a 45%,#0e1013 100%);border-radius:14px;border:1px solid var(--line)}
+.board .slot{cursor:pointer}
+.board .slot:hover rect.bg{stroke:var(--gold)}
+.sum{text-align:center;margin:10px 0 0;font-size:15px}
+.sum b{color:var(--gold)}
 .paths{display:flex;flex-direction:column;gap:10px}
 .path{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .path select{font:inherit;padding:6px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px}
 .mv{width:40px;height:40px;border-radius:8px;border:1px solid var(--line);background:var(--bg);font-size:18px}
-.mv.t{background:var(--bar);color:#fff;border-color:var(--bar)}
+.mv.t{background:#3a7ca5;color:#fff;border-color:#3a7ca5}
 .res{margin-left:auto;color:var(--mut)}
 .x{border:none;background:none;color:var(--bad);font-size:20px;padding:4px 8px}
-.add{margin-top:10px;padding:8px 14px;border-radius:8px;border:1px dashed var(--line);background:none}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.add{padding:8px 14px;border-radius:8px;border:1px dashed var(--line);background:none;display:inline-block;cursor:pointer}
 .set{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
 .set label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mut)}
-.set input,.set select{font:inherit;padding:6px 8px;width:120px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px}
-table{border-collapse:collapse;width:100%;text-align:center}
+.set input{font:inherit;padding:6px 8px;width:120px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px}
+details summary{cursor:pointer;color:var(--mut);font-size:14px;font-weight:600}
+table{border-collapse:collapse;width:100%;text-align:center;margin-top:10px}
 th,td{padding:7px 2px;border:1px solid var(--line);font-variant-numeric:tabular-nums;font-size:14px}
 th{color:var(--mut);font-weight:500}
 td.best{background:var(--acc);color:var(--accfg);font-weight:700}
 td.z{color:var(--mut);opacity:.5}
 tr.used td,tr.used th{opacity:.45}
 .err{color:var(--bad)}
-.drop{display:flex;flex-direction:column;align-items:center;gap:2px;padding:16px;border:2px dashed var(--line);border-radius:12px;cursor:pointer;text-align:center;margin-bottom:6px}
-.drop.over{border-color:var(--acc);background:var(--bg)}
-.drop b{font-size:16px}.drop span{color:var(--mut);font-size:13px}
 #status:empty{display:none}
 </style>
 </head>
 <body>
-<main>
+<main id="drop">
 <h1>交錯命途 · 起點機率計算</h1>
 
-<div class="card">
-  <h2>想要哪個獎賞?</h2>
-  <div class="targets" id="targets"></div>
-  <div id="rank"></div>
-</div>
+<svg class="board" id="board" viewBox="0 0 600 900" xmlns="http://www.w3.org/2000/svg"></svg>
+<p class="sum" id="sum"></p>
+<p class="note" style="text-align:center;margin-bottom:14px">點下方的獎賞,上方起點會標出機率與前三名。</p>
 
 <div class="card">
   <h2>已走過的路徑(每走一次就記一筆)</h2>
-  <label class="drop" id="drop">
-    <input type="file" id="file" accept="image/*" multiple hidden>
-    <b>上傳遊戲截圖</b>
-    <span>點這裡選檔、拖曳圖片進來,或直接 Ctrl+V 貼上</span>
-  </label>
-  <p class="note" id="status"></p>
+  <p class="note" id="status" style="margin:0 0 8px"></p>
   <div class="paths" id="paths"></div>
-  <button class="add" id="add">＋ 新增路徑</button>
-  <p class="note">每層點按切換:↓ 直走、← 左移、→ 右移。直走代表該處兩側都沒有橫線,工具會據此縮小可能的配置。</p>
+  <div class="btns">
+    <button class="add" id="add">＋ 新增路徑</button>
+    <label class="add">📷 上傳截圖<input type="file" id="file" accept="image/*" multiple hidden></label>
+    <button class="add" id="reset">換新樓層</button>
+  </div>
+  <p class="note">可上傳、拖曳圖片進來,或 Ctrl+V 貼上遊戲截圖自動讀取。手動記錄時每層點按切換:↓ 直走、← 左移、→ 右移。直走代表該處兩側都沒有橫線,工具會據此縮小可能的配置。</p>
 </div>
 
 <div class="card">
   <h2>本層設定</h2>
   <div class="set">
-    <label>橫線總數(畫面上方「橫線 ×N」)<input id="n" type="number" min="1" max="25" value="7"></label>
-    <button class="add" id="reset" style="margin:0">換新樓層(清空路徑)</button>
+    <label>橫線總數(畫面上方「橫線數量 a / N」)<input id="n" type="number" min="1" max="25" value="7"></label>
   </div>
   <p class="note">版面固定 6 直線 × 5 層,同一層的橫線不會共用端點(上下層可以相連);每條直線至少連 1 條橫線;假設合法配置機率相同。</p>
 </div>
 
 <div class="card">
-  <h2>完整機率表(起點 → 獎賞)</h2>
-  <div id="table"></div>
+  <details><summary>完整機率表(起點 → 獎賞)</summary><div id="table"></div></details>
 </div>
 </main>
 <script>
@@ -220,6 +203,42 @@ function renderPaths(){
   }).join('')||'<p class="note" style="margin:0">尚未記錄路徑。</p>';
 }
 
+const X=i=>50+i*100,YR=r=>260+r*100,Y0=172,Y1=730;
+const MEDAL=['var(--gold)','var(--silver)','var(--bronze)'];
+function board(ctx){
+  const {tot,cnt,t,usedStart,usedEnd,top3}=ctx;
+  let g='';
+  for(let c=0;c<C;c++) g+='<line x1="'+X(c)+'" y1="'+Y0+'" x2="'+X(c)+'" y2="'+Y1+'" stroke="#8a7a5c" stroke-width="7" stroke-linecap="round"/>';
+  for(const pa of S.paths){
+    let p=pa.s,pts=[X(p)+','+Y0];
+    for(let r=0;r<R;r++){pts.push(X(p)+','+YR(r));const m=pa.m[r];if(m==='L')p--;else if(m==='R')p++;pts.push(X(p)+','+YR(r));}
+    pts.push(X(p)+','+Y1);
+    g+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="#bff6ff" stroke-width="9" stroke-linejoin="round" stroke-linecap="round" style="filter:drop-shadow(0 0 6px #4fd8ee)"/>';
+  }
+  for(let c=0;c<C;c++)for(let r=0;r<R;r++) g+='<circle cx="'+X(c)+'" cy="'+YR(r)+'" r="9" fill="#5aa9e6"/>';
+  for(let c=0;c<C;c++){
+    g+='<circle cx="'+X(c)+'" cy="'+Y0+'" r="13" fill="#b99a63" stroke="#f2ecdc" stroke-width="3"/><circle cx="'+X(c)+'" cy="'+Y1+'" r="13" fill="#b99a63" stroke="#f2ecdc" stroke-width="3"/>';
+  }
+  for(let c=0;c<C;c++){
+    const rank=top3.indexOf(c),used=usedStart.includes(c);
+    const ring=rank>=0?MEDAL[rank]:'#b99a63';
+    g+='<g opacity="'+(used?0.4:1)+'"><circle cx="'+X(c)+'" cy="50" r="38" fill="#2f7f8f" stroke="'+ring+'" stroke-width="'+(rank>=0?8:5)+'"'+(rank>=0?' style="filter:drop-shadow(0 0 8px '+ring+')"':'')+'/>'+
+      '<text x="'+X(c)+'" y="64" text-anchor="middle" font-size="40" font-weight="700" font-family="Georgia,serif" fill="#f4ecd6">'+L[c]+'</text>';
+    if(tot&&!usedEnd.includes(t)&&!used){
+      const p=cnt[c][t]/tot*100;
+      g+='<text x="'+X(c)+'" y="118" text-anchor="middle" font-size="26" font-weight="700" fill="'+(rank>=0?MEDAL[rank]:'#ece9e1')+'">'+p.toFixed(1)+'%</text>';
+      if(rank>=0) g+='<rect x="'+(X(c)-28)+'" y="126" width="56" height="22" rx="11" fill="'+MEDAL[rank]+'"/><text x="'+X(c)+'" y="142" text-anchor="middle" font-size="15" font-weight="700" fill="#1a1405">第 '+(rank+1)+' 名</text>';
+    }else if(used) g+='<text x="'+X(c)+'" y="118" text-anchor="middle" font-size="18" fill="#9a978d">已走過</text>';
+    g+='</g>';
+  }
+  for(let c=0;c<C;c++){
+    const sel=t===c,got=usedEnd.includes(c),x=X(c)-44;
+    g+='<g class="slot" data-t="'+c+'"><rect class="bg" x="'+x+'" y="758" width="88" height="106" rx="8" fill="#1a1c22" stroke="'+(sel?'#f7c859':'#b99a63')+'" stroke-width="'+(sel?6:3)+'"'+(sel?' style="filter:drop-shadow(0 0 8px #f7c859)"':'')+'/>'+
+      '<text x="'+X(c)+'" y="822" text-anchor="middle" font-size="46" font-weight="700" font-style="italic" font-family="Georgia,serif" fill="'+(got?'#6b685f':'#f4ecd6')+'">'+(c+1)+'</text>'+
+      (got?'<text x="'+X(c)+'" y="850" text-anchor="middle" font-size="16" fill="#9a978d">已取得</text>':'<text x="'+X(c)+'" y="850" text-anchor="middle" font-size="14" fill="#9a978d">獎賞</text>')+'</g>';
+  }
+  $('board').innerHTML=g;
+}
 function render(){
   save();
   $('n').value=S.n;
@@ -228,43 +247,40 @@ function render(){
   const res=d.bad?{tot:0,cnt:[]}:compute(S.n,d.present,d.absent);
   const {tot,cnt}=res;
   const usedStart=S.paths.map(p=>p.s), usedEnd=S.paths.map(p=>walk(p).end);
-  $('targets').innerHTML=[...L].map((c,k)=>'<button class="tg'+(S.target===k?' on':'')+(usedEnd.includes(k)?' got':'')+'" data-t="'+k+'">'+c+'</button>').join('');
-  if(!tot){
-    const m='<p class="err">沒有任何合法配置:請檢查橫線總數是否正確,或路徑記錄是否互相矛盾。</p>';
-    $('rank').innerHTML=m;$('table').innerHTML=m;return;
-  }
   const t=S.target;
-  let h='';
-  if(usedEnd.includes(t)){
-    h='<p class="big">這個獎賞已經取得(從 <b>'+L[usedStart[usedEnd.indexOf(t)]]+'</b> 出發)。</p>';
+  let top3=[],sum='';
+  if(!tot){
+    sum='<span class="err">沒有任何合法配置:請檢查橫線總數是否正確,或路徑記錄是否互相矛盾。</span>';
+    $('table').innerHTML='';
   }else{
-    const order=[...Array(C).keys()].filter(s=>!usedStart.includes(s)).sort((a,b)=>cnt[b][t]-cnt[a][t]);
-    const top=order[0];
-    h='<p class="big">想要 <b>'+L[t]+'</b> → 最好從 <b>'+L[top]+'</b> 出發,機率 <b>'+(cnt[top][t]/tot*100).toFixed(1)+'%</b></p><div class="rank">';
-    h+=order.map((s,i)=>{const p=cnt[s][t]/tot*100;
-      return '<div class="rk'+(i===0?' best':'')+'"><div class="l">'+L[s]+'</div><div class="b"><i style="width:'+p+'%"></i></div><div class="p">'+p.toFixed(1)+'%</div></div>';}).join('');
-    h+='</div>';
-  }
-  h+='<p class="note">目前符合條件的配置:'+tot.toLocaleString()+' 種。</p>';
-  $('rank').innerHTML=h;
-
-  let tb='<table><tr><th>起點＼獎賞</th>'+[...L].map(c=>'<th>'+c+'</th>').join('')+'</tr>';
-  const best=[...Array(C).keys()].map(e=>{let b=-1;for(let s=0;s<C;s++){if(usedStart.includes(s))continue;if(b<0||cnt[s][e]>cnt[b][e])b=s;}return b;});
-  for(let s=0;s<C;s++){
-    tb+='<tr'+(usedStart.includes(s)?' class="used"':'')+'><th>'+L[s]+'</th>';
-    for(let e=0;e<C;e++){
-      const p=cnt[s][e]/tot*100;
-      tb+='<td class="'+(best[e]===s&&p>0?'best':p===0?'z':'')+'">'+p.toFixed(1)+'%</td>';
+    if(usedEnd.includes(t)) sum='第 '+(t+1)+' 號獎賞已經取得(從 <b>'+L[usedStart[usedEnd.indexOf(t)]]+'</b> 出發)。';
+    else{
+      const order=[...Array(C).keys()].filter(s=>!usedStart.includes(s)).sort((a,b)=>cnt[b][t]-cnt[a][t]);
+      top3=order.slice(0,3).filter(s=>cnt[s][t]>0);
+      sum='想要 <b>'+(t+1)+'</b> 號獎賞 → 最好從 <b>'+L[order[0]]+'</b> 出發,機率 <b>'+(cnt[order[0]][t]/tot*100).toFixed(1)+'%</b>';
     }
-    tb+='</tr>';
+    sum+='<br><span class="note">目前符合條件的配置:'+tot.toLocaleString()+' 種</span>';
+    let tb='<table><tr><th>起點＼獎賞</th>'+[...Array(C).keys()].map(c=>'<th>'+(c+1)+'</th>').join('')+'</tr>';
+    const best=[...Array(C).keys()].map(e=>{let b=-1;for(let s=0;s<C;s++){if(usedStart.includes(s))continue;if(b<0||cnt[s][e]>cnt[b][e])b=s;}return b;});
+    for(let s=0;s<C;s++){
+      tb+='<tr'+(usedStart.includes(s)?' class="used"':'')+'><th>'+L[s]+'</th>';
+      for(let e=0;e<C;e++){
+        const p=cnt[s][e]/tot*100;
+        tb+='<td class="'+(best[e]===s&&p>0?'best':p===0?'z':'')+'">'+p.toFixed(1)+'%</td>';
+      }
+      tb+='</tr>';
+    }
+    $('table').innerHTML=tb+'</table><p class="note">每欄標色處是該獎賞尚未使用的最佳起點;灰色列是已走過的起點。</p>';
   }
-  $('table').innerHTML=tb+'</table><p class="note">每欄標色處是該獎賞尚未使用的最佳起點;灰色列是已走過的起點。</p>';
+  $('sum').innerHTML=sum;
+  board({tot,cnt,t,usedStart,usedEnd,top3});
 }
 
 document.addEventListener('click',e=>{
+  const sl=e.target.closest('.slot');
+  if(sl){S.target=+sl.dataset.t;render();return;}
   const b=e.target.closest('button');if(!b)return;
-  if(b.dataset.t!==undefined){S.target=+b.dataset.t;}
-  else if(b.dataset.r!==undefined){
+  if(b.dataset.r!==undefined){
     const pa=S.paths[+b.dataset.i],r=+b.dataset.r;
     pa.m[r]=nextMove(walk(pa).cols[r],pa.m[r]);sanitize(pa);
   }
