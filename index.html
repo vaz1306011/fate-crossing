@@ -176,7 +176,7 @@ function calibrate(data,W,H){
   let bestK=0,bestE=Infinity;
   for(let k=0;k<=5-fx.span;k++){const x0=fx.first-k*fx.d,e=Math.abs(x0+2.5*fx.d-W/2);if(e<bestE){bestE=e;bestK=k;}}
   const x0=fx.first-bestK*fx.d,y0=fy.first;
-  return {xs:[...Array(6)].map((_,i)=>x0+i*fx.d),ys:[...Array(5)].map((_,i)=>y0+i*fy.d),topY:y0-fy.d,dx:fx.d};
+  return {xs:[...Array(6)].map((_,i)=>x0+i*fx.d),ys:[...Array(5)].map((_,i)=>y0+i*fy.d),topY:y0-fy.d,botY:y0+5*fy.d,dx:fx.d};
 }
 function analyze(data,W,H){
   const geo=calibrate(data,W,H);
@@ -274,7 +274,7 @@ function board(ctx){
   }
   for(let c=0;c<C;c++){
     const sel=t===c,got=usedEnd.includes(c),x=X(c)-46;
-    g+='<g class="slot" data-t="'+c+'"><image href="'+ICONS[c]+'" x="'+x+'" y="762" width="92" height="92" opacity="'+(got?0.35:1)+'"/>'+
+    g+='<g class="slot" data-t="'+c+'"><image href="'+((S.icons&&S.icons[c])||ICONS[c])+'" x="'+x+'" y="762" width="92" height="92" opacity="'+(got?0.35:1)+'"/>'+
       '<rect class="bg" x="'+x+'" y="762" width="92" height="92" rx="6" fill="none" stroke="'+(sel?'#f7c859':'#b99a63')+'" stroke-width="'+(sel?6:3)+'"'+(sel?' style="filter:drop-shadow(0 0 8px #f7c859)"':'')+'/>'+
       (got?'<text x="'+X(c)+'" y="816" text-anchor="middle" font-size="20" font-weight="700" fill="#ece9e1">已取得</text>':'')+'</g>';
   }
@@ -389,6 +389,20 @@ async function readTotal(c,geo){
     return m?+m[1]:null;
   }catch(e){return null;}
 }
+// 由盤面幾何(以格距換算)裁出下方 6 個獎賞圖示;被截掉或裁不到時回傳 null
+function cropIcons(c,geo){
+  if(!geo)return null;
+  const d=geo.dx,top=geo.botY+0.24*d,size=0.92*d,out=[];
+  if(top+size>c.height+1)return null;
+  for(let i=0;i<6;i++){
+    const x=geo.xs[i]-size/2;
+    if(x<0||x+size>c.width+1)return null;
+    const o=document.createElement('canvas');o.width=o.height=104;
+    o.getContext('2d').drawImage(c,x,top,size,size,0,0,104,104);
+    out.push(o.toDataURL('image/webp',0.88));
+  }
+  return out;
+}
 function loadImg(file){
   return new Promise((ok,ng)=>{const u=URL.createObjectURL(file),i=new Image();
     i.onload=()=>ok(i);i.onerror=ng;i.src=u;});
@@ -404,6 +418,7 @@ async function handleFiles(files){
       const g=c.getContext('2d');g.drawImage(img,0,0);
       const rs=analyze(g.getImageData(0,0,c.width,c.height).data,c.width,c.height);
       if(!cleared){S.paths=[];cleared=true;}
+      const ic=cropIcons(c,rs.geo);if(ic)S.icons=ic;
       const parts=[];
       for(const r of rs){
         const i=S.paths.findIndex(p=>p.s===r.s);
