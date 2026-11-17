@@ -329,7 +329,6 @@ async function handleFiles(files){
       const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
       const g=c.getContext('2d');g.drawImage(img,0,0);
       const rs=analyze(g.getImageData(0,0,c.width,c.height).data,c.width,c.height);
-      if(!rs.length){msgs.push('「'+f.name+'」找不到發光路徑(要在已走過路徑的畫面截圖)。');continue;}
       if(!cleared){S.paths=[];cleared=true;}
       const parts=[];
       for(const r of rs){
@@ -337,7 +336,7 @@ async function handleFiles(files){
         if(i>=0)S.paths[i]=r;else S.paths.push(r);
         parts.push(L[r.s]+'→'+L[walk(r).end]);
       }
-      let line=rs.length+' 條路徑('+parts.join('、')+')';
+      let line=rs.length?rs.length+' 條路徑('+parts.join('、')+')':'尚無走過的路徑';
       const n=await readTotal(img);
       if(n&&n>=1&&n<=25){S.n=n;line+=',橫線總數 '+n;}
       else line+=',沒辨識到橫線總數,請在下方手動確認';
