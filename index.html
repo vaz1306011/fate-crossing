@@ -49,7 +49,7 @@ tr.used td,tr.used th{opacity:.45}
 <main id="drop">
 <h1>交錯命途 · 起點機率計算</h1>
 
-<div class="topbar">橫線數量:<span id="known">0</span> / <input id="n" type="number" min="1" max="25" value="7" aria-label="橫線總數"></div>
+<div class="topbar">橫線數量:<span id="known">0</span> / <input id="n" type="number" min="1" max="25" value="5" aria-label="橫線總數"></div>
 <svg class="board" id="board" viewBox="0 0 600 900" xmlns="http://www.w3.org/2000/svg"></svg>
 <p class="sum" id="sum"></p>
 <p class="note" style="text-align:center;margin-bottom:14px">點下方的獎賞,上方起點會標出機率與前三名。</p>
@@ -202,7 +202,7 @@ function analyze(data,W,H){
 /*ENDV*/
 
 const L="ABCDEF";
-let S={n:7,target:2,paths:[{s:3,m:['R','S','S','S','R']}]};
+let S={n:5,target:0,paths:[]};
 try{const v=JSON.parse(localStorage.getItem('amida'));if(v&&v.paths)S=v;}catch(e){}
 const save=()=>{try{localStorage.setItem('amida',JSON.stringify(S));}catch(e){}};
 const $=id=>document.getElementById(id);
