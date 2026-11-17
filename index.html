@@ -52,7 +52,6 @@ tr.used td,tr.used th{opacity:.45}
 <div class="topbar">橫線數量:<span id="known">0</span> / <input id="n" type="number" min="1" max="25" value="5" aria-label="橫線總數"></div>
 <svg class="board" id="board" viewBox="0 0 600 900" xmlns="http://www.w3.org/2000/svg"></svg>
 <p class="sum" id="sum"></p>
-<p class="note" style="text-align:center;margin-bottom:14px">點下方的獎賞,上方起點會標出機率與前三名。</p>
 
 <div class="card">
   <h2>已走過的路徑(每走一次就記一筆)</h2>
@@ -63,12 +62,11 @@ tr.used td,tr.used th{opacity:.45}
     <label class="add">📷 上傳截圖<input type="file" id="file" accept="image/*" multiple hidden></label>
     <button class="add" id="reset">清除</button>
   </div>
-  <p class="note">可上傳、拖曳圖片進來,或 Ctrl+V 貼上遊戲截圖自動讀取。手動記錄時每層點按切換:↓ 直走、← 左移、→ 右移。直走代表該處兩側都沒有橫線,工具會據此縮小可能的配置。</p>
+  <p class="note">可上傳、拖曳圖片進來,或 Ctrl+V 貼上遊戲截圖自動讀取。</p>
 </div>
 
 <div class="card">
   <details><summary>完整機率表(起點 → 獎賞)</summary><div id="table"></div></details>
-  <p class="note">版面固定 6 直線 × 5 層,同一層的橫線不會共用端點(上下層可以相連);每條直線至少連 1 條橫線;假設合法配置機率相同。直走代表該處兩側都沒有橫線,工具會據此縮小可能的配置。</p>
 </div>
 </main>
 <script>
@@ -295,13 +293,11 @@ function render(){
     sum='<span class="err">沒有任何合法配置:請檢查橫線總數是否正確,或路徑記錄是否互相矛盾。</span>';
     $('table').innerHTML='';
   }else{
-    if(usedEnd.includes(t)) sum='';
-    else{
+    if(!usedEnd.includes(t)){
       const order=[...Array(C).keys()].filter(s=>!usedStart.includes(s)).sort((a,b)=>cnt[b][t]-cnt[a][t]);
       top3=order.slice(0,3).filter(s=>cnt[s][t]>0);
-      sum='想要 <b>'+(t+1)+'</b> 號獎賞 → 最好從 <b>'+L[order[0]]+'</b> 出發,機率 <b>'+(cnt[order[0]][t]/tot*100).toFixed(1)+'%</b>';
     }
-    sum+='<br><span class="note">目前符合條件的配置:'+tot.toLocaleString()+' 種</span>';
+    sum='<span class="note">目前符合條件的配置:'+tot.toLocaleString()+' 種</span>';
     let tb='<table><tr><th>起點＼獎賞</th>'+[...Array(C).keys()].map(c=>'<th>'+(c+1)+'</th>').join('')+'</tr>';
     const best=[...Array(C).keys()].map(e=>{let b=-1;for(let s=0;s<C;s++){if(usedStart.includes(s))continue;if(b<0||cnt[s][e]>cnt[b][e])b=s;}return b;});
     for(let s=0;s<C;s++){
@@ -312,7 +308,7 @@ function render(){
       }
       tb+='</tr>';
     }
-    $('table').innerHTML=tb+'</table><p class="note">每欄標色處是該獎賞尚未使用的最佳起點;灰色列是已走過的起點。</p>';
+    $('table').innerHTML=tb+'</table>';
   }
   $('sum').innerHTML=sum;
   $('known').textContent=d.present.size;
