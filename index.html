@@ -275,10 +275,9 @@ function board(ctx){
     g+='</g>';
   }
   for(let c=0;c<C;c++){
-    const sel=t===c,got=usedEnd.includes(c),x=X(c)-46;
-    g+='<g class="slot" data-t="'+c+'"><image href="'+((S.icons&&S.icons[c])||ICONS[c])+'" x="'+x+'" y="762" width="92" height="92" opacity="'+(got?0.35:1)+'"/>'+
-      '<rect class="bg" x="'+x+'" y="762" width="92" height="92" rx="6" fill="none" stroke="'+(sel?'#f7c859':'#b99a63')+'" stroke-width="'+(sel?6:3)+'"'+(sel?' style="filter:drop-shadow(0 0 8px #f7c859)"':'')+'/>'+
-      (got?'<text x="'+X(c)+'" y="816" text-anchor="middle" font-size="20" font-weight="700" fill="#ece9e1">已取得</text>':'')+'</g>';
+    const sel=t===c,x=X(c)-46;
+    g+='<g class="slot" data-t="'+c+'"><image href="'+((S.icons&&S.icons[c])||ICONS[c])+'" x="'+x+'" y="762" width="92" height="92" />'+
+      '<rect class="bg" x="'+x+'" y="762" width="92" height="92" rx="6" fill="none" stroke="'+(sel?'#f7c859':'#b99a63')+'" stroke-width="'+(sel?6:3)+'"'+(sel?' style="filter:drop-shadow(0 0 8px #f7c859)"':'')+'/>'+'</g>';
   }
   $('board').innerHTML=g;
 }
@@ -296,7 +295,7 @@ function render(){
     sum='<span class="err">沒有任何合法配置:請檢查橫線總數是否正確,或路徑記錄是否互相矛盾。</span>';
     $('table').innerHTML='';
   }else{
-    if(usedEnd.includes(t)) sum='第 '+(t+1)+' 號獎賞已經取得(從 <b>'+L[usedStart[usedEnd.indexOf(t)]]+'</b> 出發)。';
+    if(usedEnd.includes(t)) sum='';
     else{
       const order=[...Array(C).keys()].filter(s=>!usedStart.includes(s)).sort((a,b)=>cnt[b][t]-cnt[a][t]);
       top3=order.slice(0,3).filter(s=>cnt[s][t]>0);
