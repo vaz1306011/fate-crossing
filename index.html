@@ -72,6 +72,7 @@ tr.used td,tr.used th{opacity:.45}
 <script>
 /*CORE*/
 const R=5,C=6,G=5;
+const fmt=p=>p>0&&p<0.05?'&lt;0.1%':p.toFixed(1)+'%';
 function derive(paths){
   const present=new Set(),absent=new Set();
   for(const pa of paths){
@@ -267,7 +268,7 @@ function board(ctx){
       '<text x="'+X(c)+'" y="64" text-anchor="middle" font-size="40" font-weight="700" font-family="Georgia,serif" fill="#f4ecd6">'+L[c]+'</text>';
     if(tot&&!usedEnd.includes(t)&&!used){
       const p=cnt[c][t]/tot*100;
-      g+='<text x="'+X(c)+'" y="118" text-anchor="middle" font-size="26" font-weight="700" fill="'+(rank>=0?MEDAL[rank]:'#ece9e1')+'">'+p.toFixed(1)+'%</text>';
+      g+='<text x="'+X(c)+'" y="118" text-anchor="middle" font-size="26" font-weight="700" fill="'+(rank>=0?MEDAL[rank]:'#ece9e1')+'">'+fmt(p)+'</text>';
       if(rank>=0) g+='<rect x="'+(X(c)-28)+'" y="126" width="56" height="22" rx="11" fill="'+MEDAL[rank]+'"/><text x="'+X(c)+'" y="142" text-anchor="middle" font-size="15" font-weight="700" fill="#1a1405">第 '+(rank+1)+' 名</text>';
     }else if(used) g+='<text x="'+X(c)+'" y="118" text-anchor="middle" font-size="18" fill="#9a978d">已走過</text>';
     g+='</g>';
@@ -304,7 +305,7 @@ function render(){
       tb+='<tr'+(usedStart.includes(s)?' class="used"':'')+'><th>'+L[s]+'</th>';
       for(let e=0;e<C;e++){
         const p=cnt[s][e]/tot*100;
-        tb+='<td class="'+(best[e]===s&&p>0?'best':p===0?'z':'')+'">'+p.toFixed(1)+'%</td>';
+        tb+='<td class="'+(best[e]===s&&p>0?'best':p===0?'z':'')+'">'+fmt(p)+'</td>';
       }
       tb+='</tr>';
     }
