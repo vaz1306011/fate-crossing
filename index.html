@@ -139,7 +139,7 @@ function groupVals(vals,tol){
 }
 function calibrate(data,W,H){
   const lo=Math.max(6,(W*0.004)**2),hi=(W*0.035)**2;
-  const isBlue=i=>{const r=data[i],g=data[i+1],b=data[i+2];return b>200&&g>140&&g<205&&r>50&&r<125;};
+  const isBlue=i=>{const r=data[i],g=data[i+1],b=data[i+2];return b>=170&&b-g>=25&&g>=110&&g<=215&&r<=135;};
   const seen=new Uint8Array(W*H),dots=[],nb=[[1,0],[-1,0],[0,1],[0,-1]];
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
     const k=y*W+x;if(seen[k]||!isBlue(k*4))continue;
@@ -183,7 +183,7 @@ function analyze(data,W,H){
   if(!geo)return out;
   const {xs,ys,topY,dx}=geo,u=dx/135;
   const lit=(x,y)=>{x=Math.round(x);y=Math.round(y);if(x<0||y<0||x>=W||y>=H)return false;
-    const i=(y*W+x)*4;return data[i]>=80&&data[i+1]>=235&&data[i+2]>=235;};
+    const i=(y*W+x)*4;return data[i+1]>=225&&data[i+2]>=215;};
   const vfrac=(x,y0,y1)=>{let a=0,t=0;for(let y=y0;y<=y1;y+=2){for(let d=-3;d<=3;d+=3){t++;if(lit(x+d*u,y))a++;}}return t?a/t:0;};
   const hfrac=(x0,x1,y)=>{let a=0,t=0;for(let x=x0;x<=x1;x+=2){for(let d=-3;d<=3;d+=3){t++;if(lit(x,y+d*u))a++;}}return t?a/t:0;};
   for(let c=0;c<6;c++){
