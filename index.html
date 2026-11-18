@@ -137,7 +137,7 @@ function groupVals(vals,tol){
   return gs;
 }
 function calibrate(data,W,H){
-  const lo=Math.max(6,(W*0.004)**2),hi=(W*0.035)**2;
+  const lo=Math.max(4,(W*0.004)**2),hi=(W*0.035)**2;
   const isBlue=i=>{const r=data[i],g=data[i+1],b=data[i+2];return b>=170&&b-g>=25&&g>=110&&g<=215&&r<=135;};
   const seen=new Uint8Array(W*H),dots=[],nb=[[1,0],[-1,0],[0,1],[0,-1]];
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){
@@ -149,32 +149,71 @@ function calibrate(data,W,H){
         const nk=ny*W+nx;if(!seen[nk]&&isBlue(nk*4)){seen[nk]=1;st.push(nk);}}
     }
     const bw=x1-x0+1,bh=y1-y0+1,fill=n/(bw*bh);
-    if(n>=lo&&n<=hi&&bw/bh>0.7&&bw/bh<1.45&&fill>0.35&&fill<0.95)dots.push({x:sx/n,y:sy/n,n});
+    if(n>=lo&&n<=hi&&bw/bh>0.7&&bw/bh<1.45&&fill>0.35)dots.push({x:sx/n,y:sy/n,n});
   }
-  // 圓點大小一致:只保留與「最多同伴」面積相近的圓點,排除背景與圖示裡的藍色雜訊
+  // 圓點會隨動畫脈動變大小,只排除明顯離群的(背景與圖示裡的藍色雜訊)
   let mode=0,cnt=0;
-  for(const d of dots){const k=dots.filter(e=>e.n>d.n*0.75&&e.n<d.n*1.33).length;if(k>cnt){cnt=k;mode=d.n;}}
-  for(let i=dots.length-1;i>=0;i--)if(!(dots[i].n>mode*0.7&&dots[i].n<mode*1.43))dots.splice(i,1);
+  for(const d of dots){const k=dots.filter(e=>e.n>d.n*0.6&&e.n<d.n*1.67).length;if(k>cnt){cnt=k;mode=d.n;}}
+  for(let i=dots.length-1;i>=0;i--)if(!(dots[i].n>mode*0.4&&dots[i].n<mode*2.5))dots.splice(i,1);
   const tol=W*0.012;
-  const cg=groupVals(dots.map(d=>d.x),tol).filter(g=>g.v.length>=3);
-  const rg=groupVals(dots.map(d=>d.y),tol).filter(g=>g.v.length>=3);
-  if(cg.length<2||rg.length<3) return null;
-  // 格距與起點:相鄰群組的最小間距,其餘須為其整數倍
-  const fit=(gs,total)=>{
-    let d=Infinity;for(let i=1;i<gs.length;i++)d=Math.min(d,gs[i].c-gs[i-1].c);
-    const idx=gs.map(g=>Math.round((g.c-gs[0].c)/d));
-    if(gs.some((g,i)=>Math.abs((g.c-gs[0].c)/d-idx[i])>0.2))return null;
-    const span=idx[idx.length-1];if(span>=total)return null;
-    if(span>0)d=(gs[gs.length-1].c-gs[0].c)/span;
-    return {d,first:gs[0].c,span};
-  };
-  const fx=fit(cg,6),fy=fit(rg,5);
+  // 路徑全亮時圓點幾乎都被蓋住,改用亮線本身補充:垂直亮線給欄位、水平亮線給列
+  const xv=dots.map(d=>d.x);for(const x of scanLines(data,W,H,true,H*0.07))xv.push(x,x);
+  const fx=fitAxis(xv,6,W*0.1,W*0.2,tol,W/2,2);
+  if(!fx)return null;
+  const yv=dots.map(d=>d.y);for(const y of scanLines(data,W,H,false,fx.d*0.6))yv.push(y,y);
+  // 列距與欄距比例固定(約 1.12),用來排除雜訊造成的錯誤間距
+  const fy=fitAxis(yv,5,fx.d*0.95,fx.d*1.3,tol,H*0.52,3);
   if(!fx||!fy)return null;
-  // 盤面大致置中於圖片,據此判斷被蓋住(全亮)的欄位在左還是右
-  let bestK=0,bestE=Infinity;
-  for(let k=0;k<=5-fx.span;k++){const x0=fx.first-k*fx.d,e=Math.abs(x0+2.5*fx.d-W/2);if(e<bestE){bestE=e;bestK=k;}}
-  const x0=fx.first-bestK*fx.d,y0=fy.first;
-  return {xs:[...Array(6)].map((_,i)=>x0+i*fx.d),ys:[...Array(5)].map((_,i)=>y0+i*fy.d),topY:y0-fy.d,botY:y0+5*fy.d,dx:fx.d};
+  return {xs:[...Array(6)].map((_,i)=>fx.x0+i*fx.d),ys:[...Array(5)].map((_,i)=>fy.x0+i*fy.d),topY:fy.x0-fy.d,botY:fy.x0+5*fy.d,dx:fx.d};
+}
+// 找出夠長的青白色發光線段,回傳其中心(vertical:垂直線的 x;否則水平線的 y)
+function scanLines(data,W,H,vertical,minRun){
+  const n=vertical?W:H,m=vertical?H:W,ok=[];
+  for(let a=0;a<n;a++){
+    let cur=0,gap=0,best=0;
+    for(let b=0;b<m;b++){
+      const i=(vertical?b*W+a:a*W+b)*4;
+      if(data[i+1]>=225&&data[i+2]>=215){cur+=1+gap;gap=0;if(cur>best)best=cur;}
+      else if(cur&&++gap>2){cur=0;gap=0;}
+    }
+    ok.push(best>=minRun);
+  }
+  const out=[];
+  for(let a=0;a<n;a++){
+    if(!ok[a])continue;let b=a;while(b+1<n&&ok[b+1])b++;
+    out.push((a+b)/2);a=b;
+  }
+  return out;
+}
+// 在一個軸上找等距格線:不要求每條格線都有點(路徑會蓋住圓點),由「最多圓點落在格線上」決定間距與起點,
+// 再用盤面置中(prior)決定被蓋住的是前面還是後面幾條
+function fitAxis(vals,total,dMin,dMax,tol,prior,minGroups){
+  const gs=groupVals(vals,tol),cs=gs.map(g=>g.c),ds=[];
+  for(let i=0;i<cs.length;i++)for(let j=i+1;j<cs.length;j++)for(let k=1;k<total;k++){
+    const d=(cs[j]-cs[i])/k;if(d>=dMin&&d<=dMax)ds.push([d,cs[i]]);}
+  let best=null;
+  for(const [d0,o0] of ds){
+    const all=[];
+    gs.forEach((g,i)=>{const t=(cs[i]-o0)/d0,r=Math.round(t);if(Math.abs(t-r)*d0<=tol*1.3)all.push({r,c:cs[i],n:g.v.length});});
+    // 離格線很遠的雜訊點也可能剛好落在格線上,所以只取「連續 total 格」內分數最高的視窗
+    for(const w of new Set(all.map(e=>e.r))){
+      const ex=all.filter(e=>e.r>=w&&e.r<w+total);
+      const rs=new Set(ex.map(e=>e.r));if(rs.size<minGroups)continue;
+      const rmin=Math.min(...rs),span=Math.max(...rs)-rmin;
+      // 以最小平方法修正間距與起點
+      const m=ex.length;let sr=0,sc=0,srr=0,src=0;
+      for(const e of ex){sr+=e.r;sc+=e.c;srr+=e.r*e.r;src+=e.r*e.c;}
+      const den=m*srr-sr*sr;if(!den)continue;
+      const d=(m*src-sr*sc)/den,o=(sc-d*sr)/m;
+      if(d<dMin||d>dMax)continue;
+      const score=ex.reduce((a,e)=>a+e.n,0),first=o+rmin*d;
+      for(let k=0;k<=total-1-span;k++){
+        const x0=first-k*d,err=Math.abs(x0+(total-1)/2*d-prior);
+        if(!best||score>best.score||(score===best.score&&err<best.err))best={score,err,d,x0};
+      }
+    }
+  }
+  return best;
 }
 function analyze(data,W,H){
   const geo=calibrate(data,W,H);
