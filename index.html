@@ -386,12 +386,13 @@ async function readTotal(c,geo){
 function cropIcons(c,geo){
   if(!geo)return null;
   const d=geo.dx,top=geo.botY+0.24*d,size=0.92*d,out=[];
-  if(top+size>c.height+1)return null;
+  const avail=Math.min(size,c.height-top);
+  if(avail<size*0.85)return null; // 底部被截掉太多才放棄,稍微截到仍保留可見部分
   for(let i=0;i<6;i++){
     const x=geo.xs[i]-size/2;
     if(x<0||x+size>c.width+1)return null;
     const o=document.createElement('canvas');o.width=o.height=104;
-    o.getContext('2d').drawImage(c,x,top,size,size,0,0,104,104);
+    o.getContext('2d').drawImage(c,x,top,size,avail,0,0,104,104*avail/size);
     out.push(o.toDataURL('image/webp',0.88));
   }
   return out;
