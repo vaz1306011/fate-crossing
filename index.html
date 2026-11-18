@@ -448,7 +448,7 @@ function loadImg(file){
     i.onload=()=>ok(i);i.onerror=ng;i.src=u;});
 }
 async function handleFiles(files){
-  const st=$('status');const msgs=[];let cleared=false;
+  const st=$('status');const msgs=[],fails=[];let cleared=false;
   for(const f of files){
     if(!f.type.startsWith('image/'))continue;
     st.textContent='讀取中…(第一次會下載文字辨識模組,約數秒)';
@@ -457,6 +457,7 @@ async function handleFiles(files){
       const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
       const g=c.getContext('2d');g.drawImage(img,0,0);
       const rs=analyze(g.getImageData(0,0,c.width,c.height).data,c.width,c.height);
+      if(!rs.geo){fails.push('「'+f.name+'」找不到盤面,路徑沒有辨識成功。請上傳含完整格點的截圖。');continue;}
       if(!cleared){S.paths=[];cleared=true;}
       const ic=cropIcons(c,rs.geo);if(ic)S.icons=ic;
       const parts=[];
@@ -465,15 +466,17 @@ async function handleFiles(files){
         if(i>=0)S.paths[i]=r;else S.paths.push(r);
         parts.push(L[r.s]+'→'+L[walk(r).end]);
       }
-      let line=!rs.geo?'找不到盤面(請上傳含完整格點的截圖)':rs.length?rs.length+' 條路徑('+parts.join('、')+')':'尚無走過的路徑';
+      let line=rs.length?rs.length+' 條路徑('+parts.join('、')+')':'尚無走過的路徑';
       const n=await readTotal(c,rs.geo);
       if(n&&n>=1&&n<=25){S.n=n;line+=',橫線總數 '+n;}
       else line+=',沒辨識到橫線總數,請在下方手動確認';
+      if(!ic)line+=',獎賞圖示未能擷取';
       msgs.push(line);
       render();
-    }catch(e){msgs.push('「'+f.name+'」讀取失敗。');}
+    }catch(e){fails.push('「'+f.name+'」讀取失敗。');}
   }
   st.textContent=msgs.length?'已讀取:'+msgs.join(';'):'';
+  if(fails.length)alert(fails.join('\n'));
 }
 $('file').addEventListener('change',e=>{handleFiles([...e.target.files]);e.target.value='';});
 const dz=$('drop');
