@@ -55,7 +55,7 @@ tr.used td,tr.used th{opacity:.45}
 <div class="topbar">橫線數量:<span id="known">0</span> / <input id="n" type="number" min="1" max="25" value="5" aria-label="橫線總數"></div>
 <svg class="board" id="board" viewBox="0 0 600 900" xmlns="http://www.w3.org/2000/svg"></svg>
 <p class="sum" id="sum"></p>
-<p class="note" style="text-align:center">點兩條直線之間可新增橫線,再點一次取消。</p>
+<p class="note" style="text-align:center">點兩條直線之間可新增橫線;點直線的一段表示這段有實際走過(亮線標記)。再點一次取消。</p>
 
 <div class="card">
   <h2>已走過的路徑(每走一次就記一筆)</h2>
@@ -254,6 +254,7 @@ const L="ABCDEF";
 let S={n:5,target:0,paths:[]};
 try{const v=JSON.parse(localStorage.getItem('amida'));if(v&&v.paths)S=v;}catch(e){}
 if(!Array.isArray(S.manual))S.manual=[];
+if(!Array.isArray(S.walked))S.walked=[];
 const save=()=>{try{localStorage.setItem('amida',JSON.stringify(S));}catch(e){}};
 const $=id=>document.getElementById(id);
 
@@ -308,6 +309,9 @@ function board(ctx){
     pts.push(X(p)+','+Y1);
     g+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+'#bff6ff'+'" stroke-width="9" stroke-linejoin="round" stroke-linecap="round" style="filter:drop-shadow(0 0 6px #4fd8ee)"/>';
   }
+  const VY=[Y0,...[0,1,2,3,4].map(YR),Y1];
+  for(const k of S.walked){const [c,j]=k.split(',').map(Number);
+    g+='<line x1="'+X(c)+'" y1="'+VY[j]+'" x2="'+X(c)+'" y2="'+VY[j+1]+'" stroke="#bff6ff" stroke-width="9" stroke-linecap="round" style="filter:drop-shadow(0 0 6px #4fd8ee)"/>';}
   for(const k of S.manual){
     const [r,c]=k.split(',').map(Number);
     g+='<line x1="'+X(c)+'" y1="'+YR(r)+'" x2="'+X(c+1)+'" y2="'+YR(r)+'" stroke="'+(badKeys.has(k)?'#d9685a':'#bff6ff')+'" stroke-width="9" stroke-linecap="round" style="filter:drop-shadow(0 0 6px '+(badKeys.has(k)?'#d9685a':'#4fd8ee')+')"/>';
@@ -315,6 +319,8 @@ function board(ctx){
   for(let c=0;c<C;c++)for(let r=0;r<R;r++) g+='<circle cx="'+X(c)+'" cy="'+YR(r)+'" r="9" fill="#5aa9e6"/>';
   for(let r=0;r<R;r++)for(let c=0;c<G;c++)
     g+='<g class="seg" data-r="'+r+'" data-g="'+c+'"><line class="hint" x1="'+(X(c)+9)+'" y1="'+YR(r)+'" x2="'+(X(c+1)-9)+'" y2="'+YR(r)+'" stroke="#bff6ff" stroke-width="9" stroke-linecap="round"/><rect x="'+X(c)+'" y="'+(YR(r)-50)+'" width="'+(X(c+1)-X(c))+'" height="100"/></g>';
+  for(let c=0;c<C;c++)for(let j=0;j<=R;j++)
+    g+='<g class="seg v" data-c="'+c+'" data-j="'+j+'"><line class="hint" x1="'+X(c)+'" y1="'+(VY[j]+(j?9:0))+'" x2="'+X(c)+'" y2="'+(VY[j+1]-(j<R?9:0))+'" stroke="#bff6ff" stroke-width="9" stroke-linecap="round"/><rect x="'+(X(c)-14)+'" y="'+(VY[j]+(j?10:0))+'" width="28" height="'+(VY[j+1]-VY[j]-(j?10:0)-(j<R?10:0))+'"/></g>';
   for(let c=0;c<C;c++){
     g+='<circle cx="'+X(c)+'" cy="'+Y0+'" r="13" fill="#b99a63" stroke="#f2ecdc" stroke-width="3"/><circle cx="'+X(c)+'" cy="'+Y1+'" r="13" fill="#b99a63" stroke="#f2ecdc" stroke-width="3"/>';
   }
@@ -382,6 +388,12 @@ function render(){
 document.addEventListener('click',e=>{
   const sl=e.target.closest('.slot');
   if(sl){S.target=+sl.dataset.t;render();return;}
+  const sv=e.target.closest('.seg.v');
+  if(sv){
+    const k=sv.dataset.c+','+sv.dataset.j,i=S.walked.indexOf(k);
+    if(i>=0)S.walked.splice(i,1);else S.walked.push(k);
+    render();return;
+  }
   const sg=e.target.closest('.seg');
   if(sg){
     const k=sg.dataset.r+','+sg.dataset.g,i=S.manual.indexOf(k);
@@ -396,7 +408,7 @@ document.addEventListener('click',e=>{
   }
   else if(b.dataset.del!==undefined){S.paths.splice(+b.dataset.del,1);}
   else if(b.id==='add'){S.paths.push({s:[...Array(C).keys()].find(s=>!S.paths.some(p=>p.s===s))??0,m:['S','S','S','S','S']});}
-  else if(b.id==='reset'){S.paths=[];S.manual=[];}
+  else if(b.id==='reset'){S.paths=[];S.manual=[];S.walked=[];}
   else return;
   render();
 });
@@ -482,7 +494,7 @@ async function handleFiles(files){
       const g=c.getContext('2d');g.drawImage(img,0,0);
       const rs=analyze(g.getImageData(0,0,c.width,c.height).data,c.width,c.height);
       if(!rs.geo){fails.push('「'+f.name+'」找不到盤面,路徑沒有辨識成功。請上傳含完整格點的截圖。');continue;}
-      if(!cleared){S.paths=[];S.manual=[];cleared=true;}
+      if(!cleared){S.paths=[];S.manual=[];S.walked=[];cleared=true;}
       const ic=cropIcons(c,rs.geo);if(ic)S.icons=ic;
       const parts=[];
       for(const r of rs){
