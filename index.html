@@ -300,22 +300,28 @@ const ICONS=["data:image/webp;base64,UklGRsQNAABXRUJQVlA4ILgNAACwMwCdASpoAGgAPj0
 const X=i=>50+i*100,YR=r=>260+r*100,Y0=172,Y1=730;
 const MEDAL=['var(--gold)','var(--silver)','var(--bronze)'];
 function board(ctx){
-  const {tot,cnt,t,usedStart,usedEnd,top3,badKeys}=ctx;
+  const {tot,cnt,t,usedStart,usedEnd,top3,badKeys,badWalked}=ctx;
   let g='';
   for(let c=0;c<C;c++) g+='<line x1="'+X(c)+'" y1="'+Y0+'" x2="'+X(c)+'" y2="'+Y1+'" stroke="#8a7a5c" stroke-width="7" stroke-linecap="round"/>';
-  for(const pa of S.paths){
+  S.paths.forEach(pa=>{
     let p=pa.s,pts=[X(p)+','+Y0];
     for(let r=0;r<R;r++){pts.push(X(p)+','+YR(r));const m=pa.m[r];if(m==='L')p--;else if(m==='R')p++;pts.push(X(p)+','+YR(r));}
     pts.push(X(p)+','+Y1);
-    g+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+'#bff6ff'+'" stroke-width="9" stroke-linejoin="round" stroke-linecap="round" style="filter:drop-shadow(0 0 6px #4fd8ee)"/>';
-  }
+    g+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="#bff6ff" stroke-width="9" stroke-linejoin="round" stroke-linecap="round" style="filter:drop-shadow(0 0 6px #4fd8ee)"/>';
+  });
   const VY=[Y0,...[0,1,2,3,4].map(YR),Y1];
   for(const k of S.walked){const [c,j]=k.split(',').map(Number);
     g+='<line x1="'+X(c)+'" y1="'+VY[j]+'" x2="'+X(c)+'" y2="'+VY[j+1]+'" stroke="#bff6ff" stroke-width="9" stroke-linecap="round" style="filter:drop-shadow(0 0 6px #4fd8ee)"/>';}
   for(const k of S.manual){
     const [r,c]=k.split(',').map(Number);
-    g+='<line x1="'+X(c)+'" y1="'+YR(r)+'" x2="'+X(c+1)+'" y2="'+YR(r)+'" stroke="'+(badKeys.has(k)?'#d9685a':'#bff6ff')+'" stroke-width="9" stroke-linecap="round" style="filter:drop-shadow(0 0 6px '+(badKeys.has(k)?'#d9685a':'#4fd8ee')+')"/>';
+    g+='<line x1="'+X(c)+'" y1="'+YR(r)+'" x2="'+X(c+1)+'" y2="'+YR(r)+'" stroke="#bff6ff" stroke-width="9" stroke-linecap="round" style="filter:drop-shadow(0 0 6px #4fd8ee)"/>';
   }
+  // 有問題的位置蓋上紅線
+  const RED='stroke="#d9685a" stroke-width="9" stroke-linecap="round" style="filter:drop-shadow(0 0 6px #d9685a)"/>';
+  for(const k of badWalked){const [c,j]=k.split(',').map(Number);
+    g+='<line x1="'+X(c)+'" y1="'+VY[j]+'" x2="'+X(c)+'" y2="'+VY[j+1]+'" '+RED;}
+  for(const k of badKeys){const [r,c]=k.split(',').map(Number);
+    g+='<line x1="'+X(c)+'" y1="'+YR(r)+'" x2="'+X(c+1)+'" y2="'+YR(r)+'" '+RED;}
   for(let c=0;c<C;c++)for(let r=0;r<R;r++) g+='<circle cx="'+X(c)+'" cy="'+YR(r)+'" r="9" fill="#5aa9e6"/>';
   for(let r=0;r<R;r++)for(let c=0;c<G;c++)
     g+='<g class="seg" data-r="'+r+'" data-g="'+c+'"><line class="hint" x1="'+(X(c)+9)+'" y1="'+YR(r)+'" x2="'+(X(c+1)-9)+'" y2="'+YR(r)+'" stroke="#bff6ff" stroke-width="9" stroke-linecap="round"/><rect x="'+X(c)+'" y="'+(YR(r)-50)+'" width="'+(X(c+1)-X(c))+'" height="100"/></g>';
@@ -343,19 +349,92 @@ function board(ctx){
   }
   $('board').innerHTML=g;
 }
+// 檢查手動標記的走過直線段:從頂端每個亮起的起點照著橫線往下追。
+// 追到底且沒問題的就是一條已走過的路徑;遇到不合邏輯的點(中斷、分岔成兩條路、兩側同時有橫線)時,
+// 該點之前的部分維持正常,只標紅直接接在該點後面的線;往上接不到任何起點的孤立線段整段標紅
+function checkWalk(bridges){
+  const W=new Set(S.walked),V=(c,j)=>'v'+c+','+j,H=(r,g)=>'h'+r+','+g;
+  const good=new Set(),pre=new Set(),red=new Set(),msgs=[],paths=[],probs=[];
+  for(let c=0;c<C;c++){
+    if(!W.has(c+',0'))continue;
+    let p=c,prob=null;const segs=[c+',0'],brs=[],m=[],el=[V(c,0)];
+    for(let r=0;r<R;r++){
+      const rt=p<G&&bridges.has(r+','+p),lf=p>0&&bridges.has(r+','+(p-1));
+      if(rt&&lf){prob={p,r,t:L[c]+' 出發的路徑在第 '+(r+1)+' 列的 '+L[p]+' 兩側同時有橫線'};break;}
+      const q=rt?p+1:lf?p-1:p;
+      // 轉彎時下方直線也亮著,且不是另一側有路徑經同一條橫線過來 → 分岔成兩條路
+      if(q!==p&&W.has(p+','+(r+1))&&!W.has(q+','+r)){prob={p,r,t:L[c]+' 出發的路徑在第 '+(r+1)+' 列的 '+L[p]+' 分岔成兩條路'};break;}
+      if(q!==p&&(q>p?q<G&&bridges.has(r+','+q):q>0&&bridges.has(r+','+(q-1)))){prob={p,r,t:L[c]+' 出發的路徑在第 '+(r+1)+' 列的 '+L[q]+' 兩側同時有橫線'};break;}
+      if(!W.has(q+','+(r+1))){prob={p,r,t:L[c]+' 出發的路徑在第 '+(r+1)+' 列之後的 '+L[q]+' 欄中斷'};break;}
+      if(q!==p){brs.push(r+','+Math.min(p,q));el.push(H(r,Math.min(p,q)));}
+      m.push(q>p?'R':q<p?'L':'S');p=q;segs.push(p+','+(r+1));el.push(V(p,r+1));
+    }
+    if(prob){for(const k of el)pre.add(k);probs.push(prob);msgs.push(prob.t);}
+    else{for(const k of el)good.add(k);paths.push({s:c,m,segs,brs});}
+  }
+  // 只標紅直接接在問題點後面的線(往下的直線與左右的橫線)
+  const out=(x,y)=>{const o=[];
+    if(W.has(x+','+(y+1)))o.push(V(x,y+1));
+    if(x>0&&bridges.has(y+','+(x-1)))o.push(H(y,x-1));
+    if(x<G&&bridges.has(y+','+x))o.push(H(y,x));
+    return o.filter(k=>!good.has(k)&&!pre.has(k));};
+  for(const pb of probs){const o=out(pb.p,pb.r);
+    for(const k of o)red.add(k);
+    if(!o.length)red.add(V(pb.p,pb.r)); // 直走後中斷,後面沒有線:標最後一段直線
+  }
+  // 從所有起點往下(含左右橫線)走得到的線,都能往上找到開頭;其餘亮線是孤立在外的,整段標紅
+  const top=new Set(),st=[];
+  for(let c=0;c<C;c++)if(W.has(c+',0')){top.add(V(c,0));st.push([c,0]);}
+  while(st.length){const [x,y]=st.pop();
+    const d=V(x,y+1);if(W.has(x+','+(y+1))&&!top.has(d)){top.add(d);if(y+1<R)st.push([x,y+1]);}
+    for(const [g,n] of [[x-1,x-1],[x,x+1]]){const h=H(y,g);
+      if(g>=0&&g<G&&bridges.has(y+','+g)&&!top.has(h)){top.add(h);st.push([n,y]);}}
+  }
+  const stray=[...W].filter(k=>{const [c,j]=k.split(',').map(Number);return !top.has(V(c,j));});
+  const sw=new Set(stray);
+  for(const k of stray){const [c,j]=k.split(',').map(Number);red.add(V(c,j));}
+  // 連接兩段孤立亮線的橫線也算孤立的一部分
+  const touchS=(c,r)=>sw.has(c+','+r)||sw.has(c+','+(r+1));
+  for(const k of bridges){const [r,g]=k.split(',').map(Number);
+    if(!top.has(H(r,g))&&touchS(g,r)&&touchS(g+1,r))red.add(H(r,g));}
+  if(stray.length)msgs.push('有走過的線段沒有接到起點:'+[...new Set(stray.map(k=>+k.split(',')[0]))].sort().map(c=>L[c]+' 欄').join('、'));
+  const badWalked=new Set(),badKeys=new Set();
+  for(const k of red)(k[0]==='v'?badWalked:badKeys).add(k.slice(1));
+  return {paths,msgs,badWalked,badKeys};
+}
+// 清單路徑在第 r 列的點之後直接接著的那條線(轉彎走的橫線或往下的直線)
+function pathOut(pa,r){
+  const p=walk(pa).cols[r],m=pa.m[r];
+  return m==='L'?{brs:[r+','+(p-1)],segs:[]}:m==='R'?{brs:[r+','+p],segs:[]}:{brs:[],segs:[p+','+(r+1)]};
+}
 function render(){
   save();
   $('n').value=S.n;
   renderPaths();
-  const d=derive(S.paths);
+  const base=derive(S.paths);
+  const chk=checkWalk(new Set([...base.present,...S.manual]));
+  const allPaths=[...S.paths,...chk.paths.filter(t=>!S.paths.some(p=>p.s===t.s)).map(t=>({s:t.s,m:t.m}))];
+  const markAfter=(pa,r)=>{const a=pathOut(pa,r);for(const k of a.segs)chk.badWalked.add(k);for(const k of a.brs)chk.badKeys.add(k);};
+  // 清單路徑(手動編輯或截圖匯入)經過的點若兩側同時有橫線,從該點之後標紅
+  const brAll=new Set([...base.present,...S.manual]);
+  for(const pa of S.paths){const cols=walk(pa).cols;
+    for(let r=0;r<R;r++){const p=cols[r];
+      if(p>0&&p<G&&brAll.has(r+','+(p-1))&&brAll.has(r+','+p)){
+        chk.msgs.push(L[pa.s]+' 出發的路徑在第 '+(r+1)+' 列的 '+L[p]+' 兩側同時有橫線');
+        chk.badKeys.add(r+','+(p-1));chk.badKeys.add(r+','+p);markAfter(pa,r);break;}
+    }}
+  const d=derive(allPaths);
   for(const k of S.manual)d.present.add(k);
-  const msgs=[],badKeys=new Set();
   const hit=[...d.present].filter(k=>d.absent.has(k));
-  if(hit.length){d.bad=true;for(const k of hit)badKeys.add(k);
-    msgs.push('橫線與已走過的路徑矛盾:'+hit.map(k=>{const [r,g]=k.split(',').map(Number);return '第 '+(r+1)+' 列 '+L[g]+'–'+L[g+1];}).join('、'));}
+  if(hit.length){d.bad=true;for(const k of hit)chk.badKeys.add(k);
+    // 路徑在有橫線的點卻直走:從該點之後標紅
+    for(const pa of allPaths){const cols=walk(pa).cols;
+      for(let r=0;r<R;r++)if(pa.m[r]==='S'&&hit.some(k=>{const [hr,g]=k.split(',').map(Number);return hr===r&&(g===cols[r]||g+1===cols[r]);})){markAfter(pa,r);break;}}
+    chk.msgs.unshift('橫線與已走過的路徑矛盾:'+hit.map(k=>{const [r,g]=k.split(',').map(Number);return '第 '+(r+1)+' 列 '+L[g]+'–'+L[g+1];}).join('、'));}
+  chk.msgs=[...new Set(chk.msgs)];
   const res=d.bad?{tot:0,cnt:[]}:compute(S.n,d.present,d.absent);
   const {tot,cnt}=res;
-  const usedStart=S.paths.map(p=>p.s), usedEnd=S.paths.map(p=>walk(p).end);
+  const usedStart=allPaths.map(p=>p.s), usedEnd=allPaths.map(p=>walk(p).end);
   const t=S.target;
   let top3=[],sum='';
   if(!tot){
@@ -379,10 +458,10 @@ function render(){
     }
     $('table').innerHTML=tb+'</table>';
   }
-  if(msgs.length)sum='<span class="err">'+msgs.join('<br>')+'</span>'+(tot?'<br>'+sum:'');
+  if(chk.msgs.length)sum='<span class="err">'+chk.msgs.join('<br>')+'</span><br>'+sum;
   $('sum').innerHTML=sum;
   $('known').textContent=d.present.size;
-  board({tot,cnt,t,usedStart,usedEnd,top3,badKeys});
+  board({tot,cnt,t,usedStart,usedEnd,top3,badKeys:chk.badKeys,badWalked:chk.badWalked});
 }
 
 document.addEventListener('click',e=>{
