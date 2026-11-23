@@ -432,12 +432,17 @@ function render(){
       for(let r=0;r<R;r++)if(pa.m[r]==='S'&&hit.some(k=>{const [hr,g]=k.split(',').map(Number);return hr===r&&(g===cols[r]||g+1===cols[r]);})){markAfter(pa,r);break;}}
     chk.msgs.unshift('橫線與已走過的路徑矛盾:'+hit.map(k=>{const [r,g]=k.split(',').map(Number);return '第 '+(r+1)+' 列 '+L[g]+'–'+L[g+1];}).join('、'));}
   chk.msgs=[...new Set(chk.msgs)];
-  const res=d.bad?{tot:0,cnt:[]}:compute(S.n,d.present,d.absent);
+  // 盤面還有問題時不計算配置與機率,等問題都解決才顯示
+  const hasErr=chk.msgs.length>0;
+  const res=d.bad||hasErr?{tot:0,cnt:[]}:compute(S.n,d.present,d.absent);
   const {tot,cnt}=res;
   const usedStart=allPaths.map(p=>p.s), usedEnd=allPaths.map(p=>walk(p).end);
   const t=S.target;
   let top3=[],sum='';
-  if(!tot){
+  if(hasErr){
+    sum='<span class="err">'+chk.msgs.join('<br>')+'</span><br><span class="note">問題解決後才會計算符合條件的配置與機率。</span>';
+    $('table').innerHTML='';
+  }else if(!tot){
     sum='<span class="err">沒有任何合法配置:請檢查橫線總數是否正確,或路徑記錄是否互相矛盾。</span>';
     $('table').innerHTML='';
   }else{
@@ -458,7 +463,6 @@ function render(){
     }
     $('table').innerHTML=tb+'</table>';
   }
-  if(chk.msgs.length)sum='<span class="err">'+chk.msgs.join('<br>')+'</span><br>'+sum;
   $('sum').innerHTML=sum;
   $('known').textContent=d.present.size;
   board({tot,cnt,t,usedStart,usedEnd,top3,badKeys:chk.badKeys,badWalked:chk.badWalked});
