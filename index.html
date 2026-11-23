@@ -482,7 +482,7 @@ function render(){
   const t=S.target;
   let top3=[],sum='';
   if(hasErr){
-    sum='<span class="err">'+chk.msgs.join('<br>')+'</span><br><span class="note">問題解決後才會計算符合條件的配置與機率。</span>';
+    sum='<span class="err">'+chk.msgs.join('<br>')+'</span>';
     $('table').innerHTML='';
   }else if(!tot){
     sum='<span class="err">沒有任何合法配置:請檢查橫線總數是否正確,或路徑記錄是否互相矛盾。</span>';
