@@ -647,6 +647,7 @@ async function handleFiles(files){
         parts.push(L[r.s]+'→'+L[walk(r).end]);
       }
       let line=rs.length?rs.length+' 條路徑('+parts.join('、')+')':'尚無走過的路徑';
+      render(); // 先畫出新盤面,避免等文字辨識時使用者點到還是舊盤面的線
       const n=await readTotal(c,rs.geo);
       if(n&&n>=1&&n<=25){S.n=n;line+=',橫線總數 '+n;}
       else line+=',沒辨識到橫線總數,請在下方手動確認';
