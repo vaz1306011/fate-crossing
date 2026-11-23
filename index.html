@@ -42,6 +42,9 @@ td.best{background:var(--acc);color:var(--accfg);font-weight:700}
 td.z{color:var(--mut);opacity:.5}
 tr.used td,tr.used th{opacity:.45}
 .err{color:var(--bad)}
+.board .seg rect{fill:transparent;cursor:pointer}
+.board .seg line{opacity:0;pointer-events:none}
+.board .seg:hover line.hint{opacity:.45}
 #status:empty{display:none}
 </style>
 </head>
@@ -52,6 +55,7 @@ tr.used td,tr.used th{opacity:.45}
 <div class="topbar">橫線數量:<span id="known">0</span> / <input id="n" type="number" min="1" max="25" value="5" aria-label="橫線總數"></div>
 <svg class="board" id="board" viewBox="0 0 600 900" xmlns="http://www.w3.org/2000/svg"></svg>
 <p class="sum" id="sum"></p>
+<p class="note" style="text-align:center">點兩條直線之間可新增橫線,再點一次取消。</p>
 
 <div class="card">
   <h2>已走過的路徑(每走一次就記一筆)</h2>
@@ -249,6 +253,7 @@ function analyze(data,W,H){
 const L="ABCDEF";
 let S={n:5,target:0,paths:[]};
 try{const v=JSON.parse(localStorage.getItem('amida'));if(v&&v.paths)S=v;}catch(e){}
+if(!Array.isArray(S.manual))S.manual=[];
 const save=()=>{try{localStorage.setItem('amida',JSON.stringify(S));}catch(e){}};
 const $=id=>document.getElementById(id);
 
@@ -294,7 +299,7 @@ const ICONS=["data:image/webp;base64,UklGRsQNAABXRUJQVlA4ILgNAACwMwCdASpoAGgAPj0
 const X=i=>50+i*100,YR=r=>260+r*100,Y0=172,Y1=730;
 const MEDAL=['var(--gold)','var(--silver)','var(--bronze)'];
 function board(ctx){
-  const {tot,cnt,t,usedStart,usedEnd,top3}=ctx;
+  const {tot,cnt,t,usedStart,usedEnd,top3,badKeys}=ctx;
   let g='';
   for(let c=0;c<C;c++) g+='<line x1="'+X(c)+'" y1="'+Y0+'" x2="'+X(c)+'" y2="'+Y1+'" stroke="#8a7a5c" stroke-width="7" stroke-linecap="round"/>';
   for(const pa of S.paths){
@@ -303,7 +308,13 @@ function board(ctx){
     pts.push(X(p)+','+Y1);
     g+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+'#bff6ff'+'" stroke-width="9" stroke-linejoin="round" stroke-linecap="round" style="filter:drop-shadow(0 0 6px #4fd8ee)"/>';
   }
+  for(const k of S.manual){
+    const [r,c]=k.split(',').map(Number);
+    g+='<line x1="'+X(c)+'" y1="'+YR(r)+'" x2="'+X(c+1)+'" y2="'+YR(r)+'" stroke="'+(badKeys.has(k)?'#d9685a':'#bff6ff')+'" stroke-width="9" stroke-linecap="round" style="filter:drop-shadow(0 0 6px '+(badKeys.has(k)?'#d9685a':'#4fd8ee')+')"/>';
+  }
   for(let c=0;c<C;c++)for(let r=0;r<R;r++) g+='<circle cx="'+X(c)+'" cy="'+YR(r)+'" r="9" fill="#5aa9e6"/>';
+  for(let r=0;r<R;r++)for(let c=0;c<G;c++)
+    g+='<g class="seg" data-r="'+r+'" data-g="'+c+'"><line class="hint" x1="'+(X(c)+9)+'" y1="'+YR(r)+'" x2="'+(X(c+1)-9)+'" y2="'+YR(r)+'" stroke="#bff6ff" stroke-width="9" stroke-linecap="round"/><rect x="'+X(c)+'" y="'+(YR(r)-50)+'" width="'+(X(c+1)-X(c))+'" height="100"/></g>';
   for(let c=0;c<C;c++){
     g+='<circle cx="'+X(c)+'" cy="'+Y0+'" r="13" fill="#b99a63" stroke="#f2ecdc" stroke-width="3"/><circle cx="'+X(c)+'" cy="'+Y1+'" r="13" fill="#b99a63" stroke="#f2ecdc" stroke-width="3"/>';
   }
@@ -331,6 +342,11 @@ function render(){
   $('n').value=S.n;
   renderPaths();
   const d=derive(S.paths);
+  for(const k of S.manual)d.present.add(k);
+  const msgs=[],badKeys=new Set();
+  const hit=[...d.present].filter(k=>d.absent.has(k));
+  if(hit.length){d.bad=true;for(const k of hit)badKeys.add(k);
+    msgs.push('橫線與已走過的路徑矛盾:'+hit.map(k=>{const [r,g]=k.split(',').map(Number);return '第 '+(r+1)+' 列 '+L[g]+'–'+L[g+1];}).join('、'));}
   const res=d.bad?{tot:0,cnt:[]}:compute(S.n,d.present,d.absent);
   const {tot,cnt}=res;
   const usedStart=S.paths.map(p=>p.s), usedEnd=S.paths.map(p=>walk(p).end);
@@ -357,14 +373,22 @@ function render(){
     }
     $('table').innerHTML=tb+'</table>';
   }
+  if(msgs.length)sum='<span class="err">'+msgs.join('<br>')+'</span>'+(tot?'<br>'+sum:'');
   $('sum').innerHTML=sum;
   $('known').textContent=d.present.size;
-  board({tot,cnt,t,usedStart,usedEnd,top3});
+  board({tot,cnt,t,usedStart,usedEnd,top3,badKeys});
 }
 
 document.addEventListener('click',e=>{
   const sl=e.target.closest('.slot');
   if(sl){S.target=+sl.dataset.t;render();return;}
+  const sg=e.target.closest('.seg');
+  if(sg){
+    const k=sg.dataset.r+','+sg.dataset.g,i=S.manual.indexOf(k);
+    if(i>=0)S.manual.splice(i,1);
+    else if(!derive(S.paths).present.has(k))S.manual.push(k);
+    render();return;
+  }
   const b=e.target.closest('button');if(!b)return;
   if(b.dataset.r!==undefined){
     const pa=S.paths[+b.dataset.i],r=+b.dataset.r;
@@ -372,7 +396,7 @@ document.addEventListener('click',e=>{
   }
   else if(b.dataset.del!==undefined){S.paths.splice(+b.dataset.del,1);}
   else if(b.id==='add'){S.paths.push({s:[...Array(C).keys()].find(s=>!S.paths.some(p=>p.s===s))??0,m:['S','S','S','S','S']});}
-  else if(b.id==='reset'){S.paths=[];}
+  else if(b.id==='reset'){S.paths=[];S.manual=[];}
   else return;
   render();
 });
@@ -458,7 +482,7 @@ async function handleFiles(files){
       const g=c.getContext('2d');g.drawImage(img,0,0);
       const rs=analyze(g.getImageData(0,0,c.width,c.height).data,c.width,c.height);
       if(!rs.geo){fails.push('「'+f.name+'」找不到盤面,路徑沒有辨識成功。請上傳含完整格點的截圖。');continue;}
-      if(!cleared){S.paths=[];cleared=true;}
+      if(!cleared){S.paths=[];S.manual=[];cleared=true;}
       const ic=cropIcons(c,rs.geo);if(ic)S.icons=ic;
       const parts=[];
       for(const r of rs){
