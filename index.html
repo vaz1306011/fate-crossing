@@ -289,7 +289,7 @@ function renderPaths(){
   $('paths').innerHTML=S.paths.map((pa,i)=>{
     const w=walk(pa);
     return '<div class="path"><select data-i="'+i+'" class="st">'+
-      [...L].map((c,k)=>'<option value="'+k+'"'+(k===pa.s?' selected':'')+'>'+c+' 出發</option>').join('')+'</select>'+
+      [...L].map((c,k)=>'<option value="'+k+'"'+(k===pa.s?' selected':S.paths.some(o=>o!==pa&&o.s===k)?' disabled':'')+'>'+c+' 出發</option>').join('')+'</select>'+
       pa.m.map((m,r)=>'<button class="mv'+(m!=='S'?' t':'')+'" data-i="'+i+'" data-r="'+r+'">'+ARROW[m]+'</button>').join('')+
       '<span class="res">→ '+L[w.end]+'</span><button class="x" data-del="'+i+'">×</button></div>';
   }).join('')||'<p class="note" style="margin:0">尚未記錄路徑。</p>';
@@ -407,14 +407,56 @@ function pathOut(pa,r){
   const p=walk(pa).cols[r],m=pa.m[r];
   return m==='L'?{brs:[r+','+(p-1)],segs:[]}:m==='R'?{brs:[r+','+p],segs:[]}:{brs:[],segs:[p+','+(r+1)]};
 }
+// 清單路徑與某個點相接(從上面走進來或從這點往下走)
+const touches=(pa,c,r)=>{const s=pathMarks(pa).segs;return s.includes(c+','+r)||s.includes(c+','+(r+1));};
+// 一條完整路徑經過的直線段與橫線
+function pathMarks(pa){
+  let p=pa.s;const segs=[p+',0'],brs=[];
+  for(let r=0;r<R;r++){const m=pa.m[r];
+    if(m==='L'){brs.push(r+','+(p-1));p--;}else if(m==='R'){brs.push(r+','+p);p++;}
+    segs.push(p+','+(r+1));}
+  return {segs,brs};
+}
+// 上面點到底的完整路徑自動移進下方清單(改由清單畫線);與清單同起點同走法的重複標記直接清掉
+function absorbWalked(){
+  // 清單路徑若接著盤面上的亮線(例如存檔前就加入清單、之後才點的分岔),先拆回來一起重新追蹤,結果才不受操作順序影響
+  const W=S.walked.map(k=>k.split(',').map(Number));
+  for(let i=S.paths.length-1;i>=0;i--)
+    if(W.some(([c,j])=>(j>0&&touches(S.paths[i],c,j-1))||(j<R&&touches(S.paths[i],c,j))))unpackPath(i);
+  const chk=checkWalk(new Set([...derive(S.paths).present,...S.manual]));
+  for(const t of chk.paths){
+    const ex=S.paths.find(p=>p.s===t.s);
+    if(ex&&ex.m.join()!==t.m.join())continue; // 走法不同,留給 render 標紅提示
+    if(!ex)S.paths.push({s:t.s,m:t.m});
+    S.walked=S.walked.filter(k=>!t.segs.includes(k)); // 手動畫的橫線保留,刪掉清單路徑時不會跟著消失
+  }
+  S.paths.sort((a,b)=>a.s-b.s);
+}
+// 把清單裡的一條路徑拆回上面的手動標記,方便在盤面上逐段修改
+function unpackPath(i){
+  const {segs,brs}=pathMarks(S.paths[i]);
+  S.paths.splice(i,1);
+  for(const k of segs)if(!S.walked.includes(k))S.walked.push(k);
+  for(const k of brs)if(!S.manual.includes(k))S.manual.push(k);
+}
 function render(){
+  absorbWalked();
   save();
   $('n').value=S.n;
   renderPaths();
   const base=derive(S.paths);
   const chk=checkWalk(new Set([...base.present,...S.manual]));
-  const allPaths=[...S.paths,...chk.paths.filter(t=>!S.paths.some(p=>p.s===t.s)).map(t=>({s:t.s,m:t.m}))];
+  const allPaths=[...S.paths];
   const markAfter=(pa,r)=>{const a=pathOut(pa,r);for(const k of a.segs)chk.badWalked.add(k);for(const k of a.brs)chk.badKeys.add(k);};
+  for(const t of chk.paths){
+    const ex=S.paths.find(p=>p.s===t.s);
+    if(!ex){allPaths.push({s:t.s,m:t.m});continue;}
+    if(ex.m.join()!==t.m.join()){
+      const r=t.m.findIndex((m,i)=>m!==ex.m[i]);
+      chk.msgs.push(L[t.s]+' 出發:盤面上點的路徑與清單記錄的走法在第 '+(r+1)+' 列分岔');
+      markAfter(t,r);markAfter(ex,r);
+    }
+  }
   // 清單路徑(手動編輯或截圖匯入)經過的點若兩側同時有橫線,從該點之後標紅
   const brAll=new Set([...base.present,...S.manual]);
   for(const pa of S.paths){const cols=walk(pa).cols;
@@ -473,15 +515,34 @@ document.addEventListener('click',e=>{
   if(sl){S.target=+sl.dataset.t;render();return;}
   const sv=e.target.closest('.seg.v');
   if(sv){
-    const k=sv.dataset.c+','+sv.dataset.j,i=S.walked.indexOf(k);
+    const k=sv.dataset.c+','+sv.dataset.j,pi=S.paths.findIndex(p=>pathMarks(p).segs.includes(k));
+    if(!S.walked.includes(k)&&pi>=0)unpackPath(pi); // 點到清單路徑上的線段:拆回手動標記後取消這段
+    else if(!S.walked.includes(k)){
+      // 新點亮的線段接在清單路徑的點上:拆回重新追蹤,才能判斷是否分岔,也不受點擊順序影響
+      const c=+sv.dataset.c,j=+sv.dataset.j;
+      for(let x=S.paths.length-1;x>=0;x--)if((j>0&&touches(S.paths[x],c,j-1))||(j<R&&touches(S.paths[x],c,j)))unpackPath(x);
+    }
+    const i=S.walked.indexOf(k);
     if(i>=0)S.walked.splice(i,1);else S.walked.push(k);
     render();return;
   }
   const sg=e.target.closest('.seg');
   if(sg){
-    const k=sg.dataset.r+','+sg.dataset.g,i=S.manual.indexOf(k);
+    const k=sg.dataset.r+','+sg.dataset.g;
+    if(derive(S.paths).present.has(k)){
+      // 點到清單路徑上的橫線:把經過它的路徑拆回手動標記,再移除這條橫線
+      for(let i=S.paths.length-1;i>=0;i--)if(pathMarks(S.paths[i]).brs.includes(k))unpackPath(i);
+      if(!S.manual.includes(k))S.manual.push(k);
+    }
+    const i=S.manual.indexOf(k);
     if(i>=0)S.manual.splice(i,1);
-    else if(!derive(S.paths).present.has(k))S.manual.push(k);
+    else{
+      // 新增橫線時,經過這條橫線兩端任一點的清單路徑都拆回手動標記重新追蹤,
+      // 結果才會和「先畫橫線再點路徑」一樣,不受點擊順序影響
+      const [r,g]=k.split(',').map(Number);
+      for(let j=S.paths.length-1;j>=0;j--)if(touches(S.paths[j],g,r)||touches(S.paths[j],g+1,r))unpackPath(j);
+      S.manual.push(k);
+    }
     render();return;
   }
   const b=e.target.closest('button');if(!b)return;
@@ -490,7 +551,7 @@ document.addEventListener('click',e=>{
     pa.m[r]=nextMove(walk(pa).cols[r],pa.m[r]);sanitize(pa);
   }
   else if(b.dataset.del!==undefined){S.paths.splice(+b.dataset.del,1);}
-  else if(b.id==='add'){S.paths.push({s:[...Array(C).keys()].find(s=>!S.paths.some(p=>p.s===s))??0,m:['S','S','S','S','S']});}
+  else if(b.id==='add'){const s=[...Array(C).keys()].find(s=>!S.paths.some(p=>p.s===s));if(s===undefined)return;S.paths.push({s,m:['S','S','S','S','S']});}
   else if(b.id==='reset'){S.paths=[];S.manual=[];S.walked=[];}
   else return;
   render();
